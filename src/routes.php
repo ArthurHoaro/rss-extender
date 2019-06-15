@@ -88,7 +88,9 @@ return function (App $app) {
                 $newFeed->add($newItem);
             }
 
-            return $feedIo->getPsrResponse($newFeed, 'atom');
+            $response = $feedIo->getPsrResponse($newFeed, 'atom');
+            $response = $response->withHeader('Content-type', 'application/atom+xml');
+            return $response;
         }
 
         // Render index view
