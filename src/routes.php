@@ -55,7 +55,7 @@ return function (App $app) {
 
             /** @var ItemInterface $item */
             foreach ($feedData->getFeed() as $item) {
-                $id = ! empty($item->getPublicId()) ? $item->getPublicId() : $item->getLink();
+                $id = ! empty($item->getPublicId()) ? md5($item->getPublicId()) : md5($item->getLink());
                 $cacheKey = $hash .'.'. $id;
                 $retrieve = function () use ($client, $item, $selectors, $feed) {
                     $article = $client->request('GET', $item->getLink());
