@@ -36,8 +36,8 @@ RUN chown -R nginx:nginx . \
     && ln -sf /dev/stdout /var/log/nginx/rssextender.access.log \
     && ln -sf /dev/stderr /var/log/nginx/rssextender.error.log
 
-VOLUME /var/www/shaarli/cache
-VOLUME /var/www/shaarli/data
+VOLUME /var/www/rssextender/cache
+VOLUME /var/www/rssextender/data
 
 EXPOSE 80
 
