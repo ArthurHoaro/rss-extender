@@ -66,7 +66,7 @@ return function (App $app) {
                     $newItem = new CachedItem();
                     $newItem->setDescription($content);
                     unset($dom);
-                    $newItem->setPublicId($item->getPublicId());
+                    $newItem->setPublicId($item->getLink());
                     $newItem->setLastModified($item->getLastModified());
                     $newItem->setLink($item->getLink());
                     $newItem->setTitle($item->getTitle());
