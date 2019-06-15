@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8"/>
+        <title>RSS Extender</title>
+        <link href='//fonts.googleapis.com/css?family=Lato:300' rel='stylesheet' type='text/css'>
+        <link rel="icon" type="image/x-icon" href="favicon.ico" />
+
+        <style>
+            body {
+                margin: 50px 0 0 0;
+                padding: 0;
+                width: 100%;
+                font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+                text-align: center;
+                color: #aaa;
+                font-size: 18px;
+            }
+
+            h1 {
+                color: #719e40;
+                letter-spacing: -3px;
+                font-family: 'Lato', sans-serif;
+                font-size: 100px;
+                font-weight: 200;
+                margin-bottom: 0;
+            }
+        </style>
+    </head>
+    <body>
+        <h1>RSS Extender</h1>
+
+        <?php if (isset($feed)) : ?>
+          <p>
+            CSS Selector containing the content for <?= htmlspecialchars($feed); ?>:<br>
+            <form method="POST">
+              <input name="feed" type="hidden" value="<?= htmlspecialchars($feed) ?>" />
+              <input name="selector" type="text" />
+              <input type="submit" value="Parse">
+            </form>
+          </p>
+        <?php else: ?>
+          <p>
+            What feed do you want to process?<br>
+            <form method="get">
+              <input name="feed" type="text" />
+              <input type="submit" value="Process">
+            </form>
+          </p>
+
+          <p>
+            Delete feed selector (enter feed URL)<br>
+            <form method="get">
+              <input name="delete" type="hidden" value="1">
+              <input name="feed" type="text" />
+              <input type="submit" value="Delete">
+            </form>
+          </p>
+
+          <p>
+            Reset feed cache (enter feed URL)<br>
+            <form method="get">
+              <input name="nocache" type="hidden" value="1">
+              <input name="feed" type="text" />
+              <input type="submit" value="Clear">
+            </form>
+          </p>
+        <?php endif; ?>
+    </body>
+</html>

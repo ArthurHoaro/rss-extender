@@ -1,0 +1,7 @@
+vendor
+data/*
+!data/.gitkeep
+cache/*
+!cache/.gitkeep
+logs/*
+!logs/.gitkeep
