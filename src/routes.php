@@ -1,17 +1,10 @@
 <?php
 
-use ArthurHoaro\RssExtender\Bean\CachedItem;
-use FeedIo\Factory;
-use FeedIo\Feed;
-use FeedIo\Feed\Item;
-use FeedIo\Feed\ItemInterface;
-use GuzzleHttp\Client;
-use PHPHtmlParser\Dom;
+use ArthurHoaro\RssExtender\Processor\FeedProcessor;
 use Slim\App;
 use Slim\Http\Request;
 use Slim\Http\Response;
 use Symfony\Component\Cache\Adapter\FilesystemAdapter;
-use Symfony\Contracts\Cache\ItemInterface as CacheItemInterface;
 
 return function (App $app) {
     $container = $app->getContainer();
@@ -34,62 +27,12 @@ return function (App $app) {
         }
 
         if (! empty($feed) && isset($selectors[$feed])) {
-            $noCache = $request->getQueryParam('nocache');
+            $cacheEnabled = empty($request->getQueryParam('nocache'));
             $cache = new FilesystemAdapter('', 0, $container->get('settings')['cache_path']);
-            $client = new Client();
 
-            // retrieve shortened feed
-            $feedIo = Factory::create()->getFeedIo();
-            $feedData = $feedIo->read($feed);
-
-            $newFeed = new Feed();
-            $newFeed->setTitle($feedData->getFeed()->getTitle());
-            $newFeed->setLink($feedData->getFeed()->getLink());
-            $newFeed->setDescription($feedData->getFeed()->getDescription());
-            $newFeed->setLanguage($feedData->getFeed()->getLanguage());
-            $newFeed->setLastModified($feedData->getFeed()->getLastModified());
-            $newFeed->setPublicId($feedData->getFeed()->getPublicId());
-            $newFeed->setUrl($feedData->getFeed()->getUrl());
-
-            $hash = md5($feedData->getFeed()->getLink());
-
-            /** @var ItemInterface $item */
-            foreach ($feedData->getFeed() as $item) {
-                $id = ! empty($item->getPublicId()) ? md5($item->getPublicId()) : md5($item->getLink());
-                $cacheKey = $hash .'.'. $id;
-                $retrieve = function () use ($client, $item, $selectors, $feed) {
-                    $article = $client->request('GET', $item->getLink());
-
-                    $dom = new Dom();
-                    $dom->load((string) $article->getBody());
-                    $content = $dom->find($selectors[$feed])[0];
-                    $newItem = new CachedItem();
-                    $newItem->setDescription($content);
-                    unset($dom);
-                    $newItem->setPublicId($item->getLink());
-                    $newItem->setLastModified($item->getLastModified());
-                    $newItem->setLink($item->getLink());
-                    $newItem->setTitle($item->getTitle());
-                    $newItem->setAuthor($item->getAuthor());
-                    $newItem->setCachedAt(new DateTime());
-
-                    return $newItem;
-                };
-
-                /** @var CachedItem $newItem */
-                $newItem = $cache->get($cacheKey, function () use ($retrieve) { return $retrieve(); });
-
-                if ($noCache || $newItem->getCachedAt() < $item->getLastModified()) {
-                    $cache->delete($cacheKey);
-                    /** @var CachedItem $newItem */
-                    $newItem = $cache->get($cacheKey, function () use ($retrieve) { return $retrieve(); });
-                }
-
-                $newFeed->add($newItem);
-            }
-
-            $response = $feedIo->getPsrResponse($newFeed, 'atom');
-            $response = $response->withHeader('Content-type', 'application/atom+xml');
+            $feedProcessor = new FeedProcessor($feed, $selectors[$feed], $cache);
+            $feedProcessor->read($cacheEnabled);
+            $response = $feedProcessor->getResponse();
             return $response;
         }
 
