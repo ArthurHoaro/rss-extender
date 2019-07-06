@@ -30,6 +30,9 @@ class FeedProcessor
     protected $feedUrl;
 
     /** @var string */
+    protected $rootUrl;
+
+    /** @var string */
     protected $selector;
 
     /** @var string */
@@ -56,7 +59,8 @@ class FeedProcessor
 
         $this->feed = new Feed();
         $this->feed->setTitle($feedData->getFeed()->getTitle());
-        $this->feed->setLink($feedData->getFeed()->getLink());
+        $this->rootUrl = $feedData->getFeed()->getLink();
+        $this->feed->setLink($this->rootUrl);
         $this->feed->setDescription($feedData->getFeed()->getDescription());
         $this->feed->setLanguage($feedData->getFeed()->getLanguage());
         $this->feed->setLastModified($feedData->getFeed()->getLastModified());
@@ -88,7 +92,7 @@ class FeedProcessor
             /** @var CachedItem $newItem */
             $newItem = $this->cache->get($cacheKey, function () use ($retrieve) { return $retrieve(); });
 
-            if ($cachedEnabled || $newItem->getCachedAt() < $item->getLastModified()) {
+            if (! $cachedEnabled || $newItem->getCachedAt() < $item->getLastModified()) {
                 $this->cache->delete($cacheKey);
                 /** @var CachedItem $newItem */
                 $newItem = $this->cache->get($cacheKey, function () use ($retrieve) { return $retrieve(); });
@@ -106,6 +110,8 @@ class FeedProcessor
         $dom = new Dom();
         $dom->load((string) $article->getBody());
         $content = $dom->find($this->selector)[0];
+        $content = FeedUtils::replaceRelativeUrls($content, $this->rootUrl);
+        $content = FeedUtils::replaceHttpAssetProtocol($content);
         $newItem = new CachedItem();
         $newItem->setDescription($content);
         unset($dom);

@@ -36,4 +36,44 @@ class FeedUtils
         }
         return $itemUrl;
     }
+
+    public static function replaceRelativeUrls(string $content, string $rootUrl): string
+    {
+        $replace = [
+            'a' => 'href',
+            'img' => 'src',
+        ];
+        foreach ($replace as $tag => $attribute) {
+            $content = preg_replace(
+                '@(<'. $tag .'\s+[^>]*'. $attribute .'=["\'])/([^>])+?@',
+                '$1'. $rootUrl .'$2',
+                $content
+            );
+        }
+        return $content;
+    }
+
+    /**
+     * Replace asset called with HTTP by HTTPS URLs.
+     * HTTP assets won't be displayed on an HTTPS web page,
+     * so if they're not available, the result will be the same.
+     *
+     * @param string $content
+     *
+     * @return string
+     */
+    public static function replaceHttpAssetProtocol(string $content): string
+    {
+        $replace = [
+            'img' => 'src',
+        ];
+        foreach ($replace as $tag => $attribute) {
+            $content = preg_replace(
+                '@(<'. $tag .'\s+[^>]*'. $attribute .'=["\'])http://([^>])+?@',
+                '$1https://$2',
+                $content
+            );
+        }
+        return $content;
+    }
 }
