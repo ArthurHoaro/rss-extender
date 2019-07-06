@@ -39,6 +39,7 @@ class FeedUtils
 
     public static function replaceRelativeUrls(string $content, string $rootUrl): string
     {
+        $rootUrl = rtrim($rootUrl, '/');
         $replace = [
             'a' => 'href',
             'img' => 'src',
@@ -46,7 +47,7 @@ class FeedUtils
         foreach ($replace as $tag => $attribute) {
             $content = preg_replace(
                 '@(<'. $tag .'\s+[^>]*'. $attribute .'=["\'])/([^>])+?@',
-                '$1'. $rootUrl .'$2',
+                '$1'. $rootUrl .'/$2',
                 $content
             );
         }

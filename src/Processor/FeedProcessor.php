@@ -60,6 +60,9 @@ class FeedProcessor
         $this->feed = new Feed();
         $this->feed->setTitle($feedData->getFeed()->getTitle());
         $this->rootUrl = $feedData->getFeed()->getLink();
+        if (empty($this->rootUrl)) {
+            $this->rootUrl = 'https://'. FeedUtils::getDomain($this->feedUrl);
+        }
         $this->feed->setLink($this->rootUrl);
         $this->feed->setDescription($feedData->getFeed()->getDescription());
         $this->feed->setLanguage($feedData->getFeed()->getLanguage());
