@@ -4,7 +4,7 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#installing-dependencies",
         "This file is @generated automatically"
     ],
-    "content-hash": "ffd4ec431f71713d4747e85e9f0d4fc6",
+    "content-hash": "71e644ce2c8d0adc65493b9062d49fea",
     "packages": [
         {
             "name": "debril/feed-io",
@@ -3778,8 +3778,9 @@
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": {
-        "php": ">=7.4",
-        "ext-json": "*"
+        "php": "^7.4",
+        "ext-json": "*",
+        "ext-simplexml": "*"
     },
     "platform-dev": []
 }

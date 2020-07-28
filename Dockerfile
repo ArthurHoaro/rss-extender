@@ -1,22 +1,9 @@
-FROM alpine:3.8
+FROM php:7.4-fpm-alpine3.12
 
 RUN apk --update --no-cache add \
         ca-certificates \
         nginx \
         curl \
-        php7 \
-        php7-ctype \
-        php7-curl \
-        php7-dom \
-        php7-fpm \
-        php7-iconv \
-        php7-intl \
-        php7-json \
-        php7-mbstring \
-        php7-openssl \
-        php7-phar \
-        php7-session \
-        php7-xml \
         s6
 
 COPY .docker/nginx.conf /etc/nginx/nginx.conf
