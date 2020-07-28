@@ -24,15 +24,29 @@ class FeedUtils
         return strtolower(parse_url($url, PHP_URL_HOST));
     }
 
+    public static function getProtocol(string $url): string
+    {
+        return parse_url($url, PHP_URL_SCHEME) ?: 'http';
+    }
+
     public static function isRelativeUrl(string $url): bool
     {
         return substr($url, 0, 4) !== 'http';
     }
 
+    public static function isRelativeProtocol(string $url): bool
+    {
+        return strpos($url, '//') === 0;
+    }
+
     public static function getFullItemUrl($feedUrl, $itemUrl): string
     {
+        if (self::isRelativeProtocol($itemUrl)) {
+            return self::getProtocol($feedUrl) . ':' . $itemUrl;
+        }
+
         if (self::isRelativeUrl($itemUrl)) {
-            return rtrim(self::getDomain($feedUrl), '/') .'/'. ltrim($itemUrl);
+            return rtrim(self::getDomain($feedUrl), '/') .'/'. ltrim($itemUrl, '/');
         }
         return $itemUrl;
     }

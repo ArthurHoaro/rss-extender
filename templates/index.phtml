@@ -7,64 +7,168 @@
         <link rel="icon" type="image/x-icon" href="favicon.ico" />
 
         <style>
-            body {
-                margin: 50px 0 0 0;
-                padding: 0;
-                width: 100%;
-                font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
-                text-align: center;
-                color: #aaa;
-                font-size: 18px;
-            }
+          body {
+            margin: 0 0 0 0;
+            padding: 0;
+            width: 100%;
+            font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;
+            text-align: center;
+            color: #ccc;
+            font-size: 18px;
+            background: #333;
+          }
 
-            h1 {
-                color: #719e40;
-                letter-spacing: -3px;
-                font-family: 'Lato', sans-serif;
-                font-size: 100px;
-                font-weight: 200;
-                margin-bottom: 0;
+          #header {
+            margin: 0 0 50px 0;
+            background: rgba(0,0,0,.25);
+            border-bottom: 1px solid rgba(0,0,0,.5);
+          }
+
+          h1 {
+            letter-spacing: -3px;
+            font-family: 'Lato', sans-serif;
+            font-size: 75px;
+            margin: 0;
+          }
+
+          a, a:hover, a:visited, a:active {
+            color: #ccc;
+          }
+
+          h1 a, h1 a:hover, h1 a:visited, h1 a:active {
+            color: #805ad5;
+            font-family: 'Lato', sans-serif;
+            font-size: 75px;
+            text-decoration: none;
+          }
+
+          input[type="text"] {
+            width: 350px;
+            margin: 0 0 20px;
+            padding: 8px 12px 10px 12px;
+            border: 1px solid rgba(0,0,0,.5);
+            background: rgba(0,0,0,.25);
+            color: #fff;
+          }
+
+          input[type="text"]::placeholder { color: rgba(255,255,255,.8); }
+          input[type="text"]:hover::placeholder { color: rgba(255,255,255,.4); }
+          input[type="text"]:focus::placeholder { color: transparent; }
+
+          .button {
+            display: inline-block;
+            padding: 0.35em 1.2em;
+            border: 0.1em solid #FFFFFF;
+            margin: 0.7em 0.3em 0.3em 0;
+            border-radius: 0.12em;
+            box-sizing: border-box;
+            text-decoration: none;
+            font-family: 'Roboto', sans-serif;
+            font-weight: 300;
+            color: #FFFFFF;
+            text-align: center;
+            transition: all 0.2s;
+          }
+
+          .button:hover {
+            background-color: #805ad5;
+          }
+
+          .button-orange:hover {
+            background-color: darkorange;
+          }
+
+          .button-red:hover {
+            background-color: darkred;
+          }
+
+          @media all and (max-width: 30em) {
+            .button {
+              display: block;
+              margin: 0.4em auto;
             }
+          }
+
+          hr {
+            margin: 0 auto;
+            margin-top: 40px;
+            width: 35%;
+            border: 0;
+            height: 1px;
+            background-image: linear-gradient(to right, rgba(128, 90, 213, 0.2), #805ad5, rgba(128, 90, 213, 0.2));
+          }
+
+          footer {
+            margin: 25px;
+            font-size: 0.8em;
+          }
         </style>
     </head>
     <body>
-        <h1>RSS Extender</h1>
+      <div id="header">
+        <h1><a href="/">RSS Extender</a></h1>
+      </div>
 
-        <?php if (isset($feed)) : ?>
-          <p>
-            CSS Selector containing the content for <?= htmlspecialchars($feed); ?>:<br>
-            <form method="POST">
-              <input name="feed" type="hidden" value="<?= htmlspecialchars($feed) ?>" />
-              <input name="selector" type="text" />
-              <input type="submit" value="Parse">
-            </form>
-          </p>
-        <?php else: ?>
-          <p>
-            What feed do you want to process?<br>
-            <form method="get">
-              <input name="feed" type="text" />
-              <input type="submit" value="Process">
-            </form>
-          </p>
+      <?php if (isset($feed)) : ?>
+        <p>
+          <label for="feed-parse">
+            CSS Selector containing the article content foreach entries in feed<br>
+            <em><?= htmlspecialchars($feed); ?></em>
+          </label>
+          <br>
+          <form method="POST">
+            <input name="feed" type="hidden" value="<?= htmlspecialchars($feed) ?>" />
+            <input name="selector" id="feed-parse" type="text" placeholder="Example: .entry-content or article" />
+            <br>
+            <a href="#" class="button" onclick="this.closest('form').submit();return false;">Parse</a>
+          </form>
+          <br><br>
+          Read more on
+          <a href="https://gist.github.com/ArthurHoaro/5aa58d035a79e9ac9c43508be593b21c">CSS Selector Cheat Sheet</a>
+        </p>
+      <?php else: ?>
+        <p>
+          <label for="feed-extend">What feed do you want to extend?</label><br>
+          <form method="get">
+            <input name="feed" type="text" id="feed-extend" placeholder="RSS feed URL" />
+            <br>
+            <a href="#" class="button" onclick="this.closest('form').submit();return false;">Extend</a>
+          </form>
+        </p>
 
-          <p>
-            Delete feed selector (enter feed URL)<br>
-            <form method="get">
-              <input name="delete" type="hidden" value="1">
-              <input name="feed" type="text" />
-              <input type="submit" value="Delete">
-            </form>
-          </p>
+        <hr>
 
-          <p>
-            Reset feed cache (enter feed URL)<br>
-            <form method="get">
-              <input name="nocache" type="hidden" value="1">
-              <input name="feed" type="text" />
-              <input type="submit" value="Clear">
-            </form>
-          </p>
-        <?php endif; ?>
+        <p>
+          <label for="feed-delete">Delete feed URL selector</label><br>
+          <form method="get">
+            <input name="delete" type="hidden" value="1">
+            <input name="feed" type="text" id="feed-delete" placeholder="RSS feed URL" />
+            <br>
+            <a href="#" class="button button-red" onclick="this.closest('form').submit();return false;">Delete</a>
+          </form>
+        </p>
+
+        <hr>
+
+        <p>
+          <label for="feed-reset">Reset feed URL cache</label><br>
+          <form method="get">
+            <input name="nocache" type="hidden" value="1">
+            <input name="feed" type="text" id="feed-cache" placeholder="RSS feed URL" />
+            <br>
+            <a href="#" class="button button-orange" onclick="this.closest('form').submit();return false;">Clear</a>
+          </form>
+        </p>
+      <?php endif; ?>
+
+      <hr>
+
+      <footer>
+        <a href="https://github.com/ArthurHoaro/rss-extender" title="Github">RSS Extender</a>
+        by
+        <a href="https://hoa.ro">ArthurHoaro</a>
+      </footer>
     </body>
+
+
 </html>

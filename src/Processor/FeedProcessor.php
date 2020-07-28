@@ -17,39 +17,26 @@ use Symfony\Contracts\Cache\CacheInterface;
 
 class FeedProcessor
 {
-    /** @var Feed */
-    protected $feed;
+    protected Feed $feed;
 
-    /** @var FeedIo */
-    protected $feedIo;
+    protected FeedIo $feedIo;
 
-    /** @var CacheInterface */
-    protected $cache;
+    protected CacheInterface $cache;
 
-    /** @var string */
-    protected $feedUrl;
+    protected string $feedUrl;
 
-    /** @var string */
-    protected $rootUrl;
+    protected string $rootUrl;
 
-    /** @var string */
-    protected $selector;
+    protected string $selector;
 
-    /** @var string */
-    protected $hash;
+    protected string $hash;
 
-    /**
-     * FeedProcessor constructor.
-     *
-     * @param string         $feedUrl
-     * @param string         $selector
-     * @param CacheInterface $cache
-     */
     public function __construct(string $feedUrl, string $selector, CacheInterface $cache)
     {
         $this->feedUrl = $feedUrl;
         $this->selector = $selector;
         $this->cache = $cache;
+
         $this->feedIo = Factory::create()->getFeedIo();
     }
 
@@ -59,9 +46,13 @@ class FeedProcessor
 
         $this->feed = new Feed();
         $this->feed->setTitle($feedData->getFeed()->getTitle());
-        $this->rootUrl = $feedData->getFeed()->getLink();
+        $this->rootUrl = $feedData->getFeed()->getLink() ?? '';
         if (empty($this->rootUrl)) {
             $this->rootUrl = 'https://'. FeedUtils::getDomain($this->feedUrl);
+        }
+        // Sometimes we may encounter relative protocol URL
+        if (FeedUtils::isRelativeProtocol($this->rootUrl)) {
+            $this->rootUrl = FeedUtils::getProtocol($this->feedUrl) . ':' . $this->rootUrl;
         }
         $this->feed->setLink($this->rootUrl);
         $this->feed->setDescription($feedData->getFeed()->getDescription());
@@ -88,17 +79,15 @@ class FeedProcessor
         foreach ($feedData->getFeed() as $item) {
             $id = ! empty($item->getPublicId()) ? md5($item->getPublicId()) : md5($item->getLink());
             $cacheKey = $this->hash .'.'. $id;
-            $retrieve = function () use ($client, $item) {
-                return $this->retrieveItem($client, $item);
-            };
+            $retrieve = fn () => $this->retrieveItem($client, $item);
 
             /** @var CachedItem $newItem */
-            $newItem = $this->cache->get($cacheKey, function () use ($retrieve) { return $retrieve(); });
+            $newItem = $this->cache->get($cacheKey, fn () => $retrieve());
 
             if (! $cachedEnabled || $newItem->getCachedAt() < $item->getLastModified()) {
                 $this->cache->delete($cacheKey);
                 /** @var CachedItem $newItem */
-                $newItem = $this->cache->get($cacheKey, function () use ($retrieve) { return $retrieve(); });
+                $newItem = $this->cache->get($cacheKey, fn () => $retrieve());
             }
 
             $this->feed->add($newItem);
@@ -111,13 +100,13 @@ class FeedProcessor
         $article = $client->request('GET', $itemLink);
 
         $dom = new Dom();
-        $dom->load((string) $article->getBody());
+        $dom->loadStr((string) $article->getBody());
         $content = $dom->find($this->selector)[0];
+        unset($dom);
         $content = FeedUtils::replaceRelativeUrls($content, $this->rootUrl);
         $content = FeedUtils::replaceHttpAssetProtocol($content);
         $newItem = new CachedItem();
         $newItem->setDescription($content);
-        unset($dom);
         $newItem->setPublicId($item->getLink());
         $newItem->setLastModified($item->getLastModified());
         $newItem->setLink($itemLink);
