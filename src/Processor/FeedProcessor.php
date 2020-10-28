@@ -103,6 +103,11 @@ class FeedProcessor
         $dom->loadStr((string) $article->getBody());
         $content = $dom->find($this->selector)[0];
         unset($dom);
+        if ($content === null) {
+            $content = '<span style="color:red;">
+                No content could be retrieved. There might be an issue with your CSS selector.
+            </span>';
+        }
         $content = FeedUtils::replaceRelativeUrls($content, $this->rootUrl);
         $content = FeedUtils::replaceHttpAssetProtocol($content);
         $newItem = new CachedItem();
