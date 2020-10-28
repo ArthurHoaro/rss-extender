@@ -112,7 +112,7 @@ class FeedProcessor
         $content = FeedUtils::replaceHttpAssetProtocol($content);
         $newItem = new CachedItem();
         $newItem->setDescription($content);
-        $newItem->setPublicId($item->getLink());
+        $newItem->setPublicId(escape($item->getLink()));
         $newItem->setLastModified($item->getLastModified());
         $newItem->setLink($itemLink);
         $newItem->setTitle($item->getTitle());
