@@ -9,6 +9,7 @@ RUN apk --update --no-cache add \
 COPY .docker/nginx.conf /etc/nginx/nginx.conf
 COPY .docker/php-fpm.conf /etc/php7/php-fpm.conf
 COPY .docker/services.d /etc/services.d
+COPY .docker/php-limits.ini /usr/local/etc/php/conf.d
 
 RUN rm -rf /etc/php7/php-fpm.d/www.conf
 
@@ -18,6 +19,7 @@ COPY . rssextender
 RUN curl -sS https://getcomposer.org/installer | php -- --install-dir=/usr/bin --filename=composer
 WORKDIR /var/www/rssextender
 RUN /usr/bin/composer install --prefer-dist --no-dev
+
 
 RUN chown -R nginx:nginx . \
     && ln -sf /dev/stdout /var/log/nginx/rssextender.access.log \
