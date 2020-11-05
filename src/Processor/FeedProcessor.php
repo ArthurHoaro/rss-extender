@@ -13,6 +13,7 @@ use FeedIo\Reader\Result;
 use GuzzleHttp\Client;
 use PHPHtmlParser\Dom;
 use Psr\Http\Message\ResponseInterface;
+use stringEncode\Exception;
 use Symfony\Contracts\Cache\CacheInterface;
 
 class FeedProcessor
@@ -101,13 +102,11 @@ class FeedProcessor
 
         $dom = new Dom();
         $dom->loadStr((string) $article->getBody());
-        $content = $dom->find($this->selector)[0];
+
+        $pseudo = $this->extractPseudoClass($this->selector);
+        $results = $dom->find($this->selector);
         unset($dom);
-        if ($content === null) {
-            $content = '<span style="color:red;">
-                No content could be retrieved. There might be an issue with your CSS selector.
-            </span>';
-        }
+        $content = $this->applyPseudoClass($results, $pseudo);
         $content = FeedUtils::replaceRelativeUrls($content, $this->rootUrl);
         $content = FeedUtils::replaceHttpAssetProtocol($content);
         $newItem = new CachedItem();
@@ -120,5 +119,48 @@ class FeedProcessor
         $newItem->setCachedAt(new DateTime());
 
         return $newItem;
+    }
+
+    protected function extractPseudoClass(string $selector): array
+    {
+        $supported = [
+            'first\-child',
+            'last\-child',
+            'nth\-child',
+        ];
+        if (
+            preg_match(
+                '/(.*):(' . implode('|', $supported) . ')(?:\((\d+)\))?$/',
+                $selector,
+                $matches
+            ) === 0
+        ) {
+            return ['selector' => $selector];
+        }
+
+        return [
+            'selector' => $matches[1],
+            'pseudoClass' => $matches[2],
+            'nth' => (int) ($matches[3] ?? 1) - 1,
+        ];
+    }
+
+    protected function applyPseudoClass(?Dom\Node\Collection $results, array $pseudo)
+    {
+        if ($results === null || (!empty($pseudo['nth']) && !isset($results[$pseudo['nth']]))) {
+            return '<span style="color:red;">
+                No content could be retrieved. There might be an issue with your CSS selector.
+            </span>';
+        }
+
+        if (empty($pseudo) || $pseudo['pseudoClass'] === 'first-child') {
+            return (string) $results[0];
+        }
+
+        if ($pseudo['pseudoClass'] === 'last-child') {
+            return (string) $results[count($results) - 1];
+        }
+
+        return (string) $results[$pseudo['nth'] ?? 0];
     }
 }
