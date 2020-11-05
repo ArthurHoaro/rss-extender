@@ -13,8 +13,9 @@ use FeedIo\Reader\Result;
 use GuzzleHttp\Client;
 use GuzzleHttp\Exception\ClientException;
 use PHPHtmlParser\Dom;
+use PHPHtmlParser\Dom\Node\AbstractNode;
+use PHPHtmlParser\Dom\Node\HtmlNode;
 use Psr\Http\Message\ResponseInterface;
-use stringEncode\Exception;
 use Symfony\Contracts\Cache\CacheInterface;
 
 class FeedProcessor
@@ -82,7 +83,7 @@ class FeedProcessor
     {
         $client = new Client();
         /** @var ItemInterface $item */
-        foreach ($feedData->getFeed() as $item) {
+        foreach ($feedData->getFeed() as $key => $item) {
             $id = ! empty($item->getPublicId()) ? md5($item->getPublicId()) : md5($item->getLink());
             $cacheKey = $this->hash .'.'. $id;
             $retrieve = fn () => $this->retrieveItem($client, $item);
@@ -97,6 +98,8 @@ class FeedProcessor
             }
 
             $this->feed->add($newItem);
+
+            if ($key === 5) { break; }
         }
     }
 
@@ -167,7 +170,12 @@ class FeedProcessor
             return static::ERROR_CONTENT;
         }
 
-        if (empty($pseudo) || $pseudo['pseudoClass'] === 'first-child') {
+        $results = array_values(array_filter(
+            $results->toArray(),
+            fn (AbstractNode $item): bool => $item instanceof HtmlNode
+        ));
+
+        if (empty($pseudo['pseudoClass']) || $pseudo['pseudoClass'] === 'first-child') {
             return (string) $results[0];
         }
 
@@ -175,6 +183,6 @@ class FeedProcessor
             return (string) $results[count($results) - 1];
         }
 
-        return (string) $results[$pseudo['nth'] ?? 0];
+        return (string) $results[$pseudo['nth']];
     }
 }
