@@ -11,6 +11,7 @@ use FeedIo\Feed\ItemInterface;
 use FeedIo\FeedIo;
 use FeedIo\Reader\Result;
 use GuzzleHttp\Client;
+use GuzzleHttp\Exception\ClientException;
 use PHPHtmlParser\Dom;
 use Psr\Http\Message\ResponseInterface;
 use stringEncode\Exception;
@@ -18,6 +19,10 @@ use Symfony\Contracts\Cache\CacheInterface;
 
 class FeedProcessor
 {
+    protected const ERROR_CONTENT = '<span style="color:red;">
+        No content could be retrieved. There might be an issue with your CSS selector.
+    </span>';
+
     protected Feed $feed;
 
     protected FeedIo $feedIo;
@@ -98,7 +103,26 @@ class FeedProcessor
     protected function retrieveItem(Client $client, ItemInterface $item): CachedItem
     {
         $itemLink = FeedUtils::getFullItemUrl($this->feedUrl, $item->getLink());
-        $article = $client->request('GET', $itemLink);
+
+        $newItem = new CachedItem();
+        $newItem->setDescription($this->retrieveDescription($client, $itemLink));
+        $newItem->setPublicId(escape($item->getLink()));
+        $newItem->setLastModified($item->getLastModified());
+        $newItem->setLink($itemLink);
+        $newItem->setTitle($item->getTitle());
+        $newItem->setAuthor($item->getAuthor());
+        $newItem->setCachedAt(new DateTime());
+
+        return $newItem;
+    }
+
+    protected function retrieveDescription(Client $client, string $url): string
+    {
+        try {
+            $article = $client->request('GET', $url);
+        } catch (ClientException $e) {
+            return static::ERROR_CONTENT;
+        }
 
         $dom = new Dom();
         $dom->loadStr((string) $article->getBody());
@@ -109,16 +133,8 @@ class FeedProcessor
         $content = $this->applyPseudoClass($results, $pseudo);
         $content = FeedUtils::replaceRelativeUrls($content, $this->rootUrl);
         $content = FeedUtils::replaceHttpAssetProtocol($content);
-        $newItem = new CachedItem();
-        $newItem->setDescription($content);
-        $newItem->setPublicId(escape($item->getLink()));
-        $newItem->setLastModified($item->getLastModified());
-        $newItem->setLink($itemLink);
-        $newItem->setTitle($item->getTitle());
-        $newItem->setAuthor($item->getAuthor());
-        $newItem->setCachedAt(new DateTime());
 
-        return $newItem;
+        return $content;
     }
 
     protected function extractPseudoClass(string $selector): array
@@ -148,9 +164,7 @@ class FeedProcessor
     protected function applyPseudoClass(?Dom\Node\Collection $results, array $pseudo)
     {
         if ($results === null || (!empty($pseudo['nth']) && !isset($results[$pseudo['nth']]))) {
-            return '<span style="color:red;">
-                No content could be retrieved. There might be an issue with your CSS selector.
-            </span>';
+            return static::ERROR_CONTENT;
         }
 
         if (empty($pseudo) || $pseudo['pseudoClass'] === 'first-child') {
