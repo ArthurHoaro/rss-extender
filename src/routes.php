@@ -21,7 +21,7 @@ return function (App $app) {
                 unset($selectors[$feed]);
                 file_put_contents($container->get('settings')['data_path'], json_encode($selectors));
 
-                $response = $response->withRedirect('/?nocache=1feed='. $feed);
+                $response = $response->withRedirect('/?nocache=1&feed='. $feed);
                 return $response;
             }
         }
