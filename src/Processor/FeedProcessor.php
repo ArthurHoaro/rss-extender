@@ -98,8 +98,6 @@ class FeedProcessor
             }
 
             $this->feed->add($newItem);
-
-            if ($key === 5) { break; }
         }
     }
 
