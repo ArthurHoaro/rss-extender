@@ -51,6 +51,29 @@ class FeedUtils
         return $itemUrl;
     }
 
+    public static function extractRootUrl(string $feedUrl, ?string $feedLink): string
+    {
+        $url = $feedLink;
+        if (empty($url)) {
+            $url = 'https://'. FeedUtils::getDomain($feedUrl);
+        }
+
+        // Sometimes we may encounter relative protocol URL
+        if (FeedUtils::isRelativeProtocol($url)) {
+            $url = FeedUtils::getProtocol($url) . ':' . $url;
+        }
+
+        // Sometimes the feed url is not properly configured => quick & dirty solution
+        if (substr(rtrim($url, '/'), - strlen('feed')) === 'feed'
+            || substr(rtrim($url, '/'), - strlen('.xml')) === '.xml'
+            || substr(rtrim($url, '/'), - strlen('.rss')) === '.rss'
+        ) {
+            $url = dirname($url);
+        }
+
+        return $url;
+    }
+
     public static function replaceRelativeUrls(string $content, string $rootUrl): string
     {
         $rootUrl = rtrim($rootUrl, '/');

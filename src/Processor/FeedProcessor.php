@@ -53,14 +53,10 @@ class FeedProcessor
 
         $this->feed = new Feed();
         $this->feed->setTitle($feedData->getFeed()->getTitle());
-        $this->rootUrl = $feedData->getFeed()->getLink() ?? '';
-        if (empty($this->rootUrl)) {
-            $this->rootUrl = 'https://'. FeedUtils::getDomain($this->feedUrl);
-        }
-        // Sometimes we may encounter relative protocol URL
-        if (FeedUtils::isRelativeProtocol($this->rootUrl)) {
-            $this->rootUrl = FeedUtils::getProtocol($this->feedUrl) . ':' . $this->rootUrl;
-        }
+        $this->rootUrl = FeedUtils::extractRootUrl(
+            $this->feedUrl,
+            $feedData->getFeed()->getLink()
+        );
         $this->feed->setLink($this->rootUrl);
         $this->feed->setDescription($feedData->getFeed()->getDescription());
         $this->feed->setLanguage($feedData->getFeed()->getLanguage());
