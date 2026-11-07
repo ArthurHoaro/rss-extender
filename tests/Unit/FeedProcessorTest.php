@@ -59,7 +59,10 @@ XML;
         $atom = (string) $processor->getResponse()->getBody();
 
         $this->assertSame(['https://blog.example/rss', 'https://blog.example/first?a=1&b=2'], $requested);
-        $this->assertStringContainsString('Full text', $atom);
+        $this->assertStringContainsString(
+            '<content type="html">&lt;div class="entry-content"&gt;&lt;p&gt;Full text',
+            $atom
+        );
         $this->assertStringContainsString('https://blog.example/img.png', $atom);
         $this->assertStringNotContainsString('menu', $atom);
         $this->assertStringContainsString('could not be downloaded', $atom);

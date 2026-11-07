@@ -2,6 +2,7 @@
 
 namespace ArthurHoaro\RssExtender\Processor;
 
+use ArthurHoaro\RssExtender\Feed\HtmlAtom;
 use ArthurHoaro\RssExtender\Http\BlockedUrlException;
 use ArthurHoaro\RssExtender\Http\RedirectingClient;
 use ArthurHoaro\RssExtender\Utils\FeedUtils;
@@ -48,6 +49,7 @@ class FeedProcessor
         protected LoggerInterface $logger = new NullLogger(),
     ) {
         $this->feedIo = new FeedIo(new FeedIoClient(new RedirectingClient($client)));
+        $this->feedIo->addStandard('atom', new HtmlAtom($this->feedIo->getDateTimeBuilder()));
     }
 
     public function read(bool $cacheEnabled = true): void
