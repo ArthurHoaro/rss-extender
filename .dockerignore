@@ -1,0 +1,8 @@
+.git
+vendor
+cache/*
+data/*
+logs/*
+tests
+run.sh
+update.sh

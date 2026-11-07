@@ -98,6 +98,10 @@
             background-image: linear-gradient(to right, rgba(128, 90, 213, 0.2), #805ad5, rgba(128, 90, 213, 0.2));
           }
 
+          .error {
+            color: #f66;
+          }
+
           footer {
             margin: 25px;
             font-size: 0.8em;
@@ -108,6 +112,10 @@
       <div id="header">
         <h1><a href="/">RSS Extender</a></h1>
       </div>
+
+      <?php if (! empty($error)) : ?>
+        <p class="error"><?= htmlspecialchars($error) ?></p>
+      <?php endif; ?>
 
       <?php if (isset($feed)) : ?>
         <p>

@@ -2,21 +2,23 @@
 
 namespace ArthurHoaro\RssExtender\Processor;
 
-use ArthurHoaro\RssExtender\Bean\CachedItem;
+use ArthurHoaro\RssExtender\Http\BlockedUrlException;
+use ArthurHoaro\RssExtender\Http\RedirectingClient;
 use ArthurHoaro\RssExtender\Utils\FeedUtils;
-use DateTime;
-use FeedIo\Factory;
+use FeedIo\Adapter\Http\Client as FeedIoClient;
 use FeedIo\Feed;
+use FeedIo\Feed\Item;
 use FeedIo\Feed\ItemInterface;
+use FeedIo\FeedInterface;
 use FeedIo\FeedIo;
-use FeedIo\Reader\Result;
 use GuzzleHttp\Client;
-use GuzzleHttp\Exception\ClientException;
-use PHPHtmlParser\Dom;
-use PHPHtmlParser\Dom\Node\AbstractNode;
-use PHPHtmlParser\Dom\Node\HtmlNode;
+use GuzzleHttp\Pool;
+use Psr\Cache\CacheItemPoolInterface;
 use Psr\Http\Message\ResponseInterface;
-use Symfony\Contracts\Cache\CacheInterface;
+use Psr\Log\LoggerInterface;
+use Psr\Log\NullLogger;
+use Symfony\Component\CssSelector\Exception\ExceptionInterface as CssSelectorException;
+use Symfony\Component\DomCrawler\Crawler;
 
 class FeedProcessor
 {
@@ -24,109 +26,147 @@ class FeedProcessor
         No content could be retrieved. There might be an issue with your CSS selector.
     </span>';
 
+    protected const FETCH_ERROR_CONTENT = '<span style="color:red;">
+        The article could not be downloaded.
+    </span>';
+
+    protected const CONCURRENCY = 5;
+
     protected Feed $feed;
 
     protected FeedIo $feedIo;
 
-    protected CacheInterface $cache;
-
-    protected string $feedUrl;
-
     protected string $rootUrl;
-
-    protected string $selector;
 
     protected string $hash;
 
-    public function __construct(string $feedUrl, string $selector, CacheInterface $cache)
-    {
-        $this->feedUrl = $feedUrl;
-        $this->selector = $selector;
-        $this->cache = $cache;
-
-        $this->feedIo = Factory::create()->getFeedIo();
+    public function __construct(
+        protected string $feedUrl,
+        protected string $selector,
+        protected CacheItemPoolInterface $cache,
+        protected Client $client,
+        protected LoggerInterface $logger = new NullLogger(),
+    ) {
+        $this->feedIo = new FeedIo(new FeedIoClient(new RedirectingClient($client)));
     }
 
-    public function read($cachedEnabled = true)
+    public function read(bool $cacheEnabled = true): void
     {
-        $feedData = $this->feedIo->read($this->feedUrl);
+        $source = $this->feedIo->read($this->feedUrl)->getFeed();
 
         $this->feed = new Feed();
-        $this->feed->setTitle($feedData->getFeed()->getTitle());
-        $this->rootUrl = FeedUtils::extractRootUrl(
-            $this->feedUrl,
-            $feedData->getFeed()->getLink()
-        );
+        $this->feed->setTitle($source->getTitle());
+        $this->rootUrl = FeedUtils::extractRootUrl($this->feedUrl, $source->getLink());
         $this->feed->setLink($this->rootUrl);
-        $this->feed->setDescription($feedData->getFeed()->getDescription());
-        $this->feed->setLanguage($feedData->getFeed()->getLanguage());
-        $this->feed->setLastModified($feedData->getFeed()->getLastModified());
-        $this->feed->setPublicId($feedData->getFeed()->getPublicId());
-        $this->feed->setUrl($feedData->getFeed()->getUrl());
+        $this->feed->setDescription($source->getDescription());
+        $this->feed->setLanguage($source->getLanguage());
+        $this->feed->setLastModified($source->getLastModified());
+        $this->feed->setPublicId($source->getPublicId());
+        $this->feed->setUrl($source->getUrl());
 
         $this->hash = md5($this->feed->getLink());
-        $this->processItems($feedData, $cachedEnabled);
+        $this->processItems($source, $cacheEnabled);
     }
 
     public function getResponse(): ResponseInterface
     {
-        $response = $this->feedIo->getPsrResponse($this->feed, 'atom');
-        $response = $response->withHeader('Content-type', 'application/atom+xml');
-        return $response;
+        return $this->feedIo->getPsrResponse($this->feed, 'atom')
+            ->withHeader('Content-Type', 'application/atom+xml');
     }
 
-    protected function processItems(Result $feedData, bool $cachedEnabled)
+    protected function processItems(FeedInterface $source, bool $cacheEnabled): void
     {
-        $client = new Client();
+        $items = [];
+        $contents = [];
+        $toFetch = [];
         /** @var ItemInterface $item */
-        foreach ($feedData->getFeed() as $key => $item) {
-            $id = ! empty($item->getPublicId()) ? md5($item->getPublicId()) : md5($item->getLink());
-            $cacheKey = $this->hash .'.'. $id;
-            $retrieve = fn () => $this->retrieveItem($client, $item);
-
-            /** @var CachedItem $newItem */
-            $newItem = $this->cache->get($cacheKey, fn () => $retrieve());
-
-            if (! $cachedEnabled || $newItem->getCachedAt() < $item->getLastModified()) {
-                $this->cache->delete($cacheKey);
-                /** @var CachedItem $newItem */
-                $newItem = $this->cache->get($cacheKey, fn () => $retrieve());
+        foreach ($source as $item) {
+            if (empty($item->getLink())) {
+                continue;
             }
 
-            $this->feed->add($newItem);
+            $id = ! empty($item->getPublicId()) ? md5($item->getPublicId()) : md5($item->getLink());
+            $key = $this->hash . '.' . $id;
+            $items[$key] = $item;
+
+            $cached = $this->cache->getItem($key)->get();
+            $modifiedAt = $item->getLastModified()?->getTimestamp() ?? 0;
+            if ($cacheEnabled && is_array($cached) && $cached['cachedAt'] >= $modifiedAt) {
+                $contents[$key] = $cached['content'];
+            } else {
+                $toFetch[$key] = FeedUtils::getFullItemUrl($this->feedUrl, $item->getLink());
+            }
+        }
+
+        $contents += $this->fetchContents($toFetch);
+
+        foreach ($items as $key => $item) {
+            $this->feed->add($this->buildItem($item, $contents[$key]));
         }
     }
 
-    protected function retrieveItem(Client $client, ItemInterface $item): CachedItem
+    /**
+     * @param array<string, string> $urls Article URLs by cache key.
+     *
+     * @return array<string, string> Extracted content by cache key.
+     */
+    protected function fetchContents(array $urls): array
     {
-        $itemLink = FeedUtils::getFullItemUrl($this->feedUrl, $item->getLink());
+        $contents = [];
+        $requests = function () use ($urls) {
+            foreach ($urls as $key => $url) {
+                yield $key => fn () => $this->client->getAsync($url);
+            }
+        };
 
-        $newItem = new CachedItem();
-        $newItem->setDescription($this->retrieveDescription($client, $itemLink));
+        $pool = new Pool($this->client, $requests(), [
+            'concurrency' => static::CONCURRENCY,
+            'fulfilled' => function (ResponseInterface $response, $key) use ($urls, &$contents) {
+                $content = $this->extractContent((string) $response->getBody(), $urls[$key]);
+                $contents[$key] = $content;
+                $cacheItem = $this->cache->getItem($key);
+                $this->cache->save($cacheItem->set(['content' => $content, 'cachedAt' => time()]));
+            },
+            'rejected' => function ($reason, $key) use ($urls, &$contents) {
+                $blocked = $reason instanceof \Throwable
+                    ? BlockedUrlException::findIn($reason)
+                    : null;
+                if ($blocked !== null) {
+                    $this->logger->warning('Blocked article fetch', [
+                        'feed' => $this->feedUrl,
+                        'url' => $urls[$key],
+                        'reason' => $blocked->getMessage(),
+                    ]);
+                }
+                $contents[$key] = static::FETCH_ERROR_CONTENT;
+            },
+        ]);
+        $pool->promise()->wait();
+
+        return $contents;
+    }
+
+    protected function buildItem(ItemInterface $item, string $content): Item
+    {
+        $newItem = new Item();
+        $newItem->setContent($content);
         $newItem->setPublicId(escape($item->getLink()));
         $newItem->setLastModified($item->getLastModified());
-        $newItem->setLink($itemLink);
+        $newItem->setLink(FeedUtils::getFullItemUrl($this->feedUrl, $item->getLink()));
         $newItem->setTitle($item->getTitle());
         $newItem->setAuthor($item->getAuthor());
-        $newItem->setCachedAt(new DateTime());
 
         return $newItem;
     }
 
-    protected function retrieveDescription(Client $client, string $url): string
+    protected function extractContent(string $html, string $url): string
     {
+        $pseudo = $this->extractPseudoClass($this->selector);
         try {
-            $article = $client->request('GET', $url);
-        } catch (ClientException $e) {
+            $results = (new Crawler($html, $url))->filter($pseudo['selector']);
+        } catch (CssSelectorException $e) {
             return static::ERROR_CONTENT;
         }
-
-        $dom = new Dom();
-        $dom->loadStr((string) $article->getBody());
-
-        $pseudo = $this->extractPseudoClass($this->selector);
-        $results = $dom->find($this->selector);
-        unset($dom);
         $content = $this->applyPseudoClass($results, $pseudo);
         $content = FeedUtils::replaceRelativeUrls($content, $this->rootUrl);
         $content = FeedUtils::replaceHttpAssetProtocol($content);
@@ -158,25 +198,18 @@ class FeedProcessor
         ];
     }
 
-    protected function applyPseudoClass(?Dom\Node\Collection $results, array $pseudo)
+    protected function applyPseudoClass(Crawler $results, array $pseudo): string
     {
-        if ($results === null || (!empty($pseudo['nth']) && !isset($results[$pseudo['nth']]))) {
+        $index = match ($pseudo['pseudoClass'] ?? null) {
+            'last-child' => $results->count() - 1,
+            'nth-child' => $pseudo['nth'],
+            default => 0,
+        };
+
+        if ($index < 0 || $index >= $results->count()) {
             return static::ERROR_CONTENT;
         }
 
-        $results = array_values(array_filter(
-            $results->toArray(),
-            fn (AbstractNode $item): bool => $item instanceof HtmlNode
-        ));
-
-        if (empty($pseudo['pseudoClass']) || $pseudo['pseudoClass'] === 'first-child') {
-            return (string) $results[0];
-        }
-
-        if ($pseudo['pseudoClass'] === 'last-child') {
-            return (string) $results[count($results) - 1];
-        }
-
-        return (string) $results[$pseudo['nth']];
+        return $results->eq($index)->outerHtml();
     }
 }

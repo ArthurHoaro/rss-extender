@@ -39,6 +39,17 @@ class FeedUtils
         return strpos($url, '//') === 0;
     }
 
+    public static function isValidFeedUrl(string $url): bool
+    {
+        $parts = parse_url($url);
+
+        return strlen($url) <= 2048
+            && is_array($parts)
+            && in_array(strtolower($parts['scheme'] ?? ''), ['http', 'https'], true)
+            && preg_match('/^[^\s\/]+$/', $parts['host'] ?? '') === 1
+            && preg_match('/[\x00-\x1f\x7f]/', $url) === 0;
+    }
+
     public static function getFullItemUrl($feedUrl, $itemUrl): string
     {
         if (self::isRelativeProtocol($itemUrl)) {
@@ -46,7 +57,8 @@ class FeedUtils
         }
 
         if (self::isRelativeUrl($itemUrl)) {
-            return rtrim(self::getDomain($feedUrl), '/') .'/'. ltrim($itemUrl, '/');
+            return self::getProtocol($feedUrl) . '://' . self::getDomain($feedUrl)
+                . '/' . ltrim($itemUrl, '/');
         }
         return $itemUrl;
     }
@@ -60,7 +72,7 @@ class FeedUtils
 
         // Sometimes we may encounter relative protocol URL
         if (FeedUtils::isRelativeProtocol($url)) {
-            $url = FeedUtils::getProtocol($url) . ':' . $url;
+            $url = FeedUtils::getProtocol($feedUrl) . ':' . $url;
         }
 
         // Sometimes the feed url is not properly configured => quick & dirty solution
