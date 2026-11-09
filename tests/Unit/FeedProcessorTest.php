@@ -129,4 +129,25 @@ XML;
         $this->assertSame(0, $mock->count());
         $this->assertStringContainsString('Full text', (string) $processor->getResponse()->getBody());
     }
+
+    public function testChangingTheSelectorRefetchesArticles(): void
+    {
+        $mock = new MockHandler([
+            new Response(200, [], static::FEED),
+            new Response(200, [], static::ARTICLE),
+            new Response(200, [], static::FEED),
+            new Response(200, [], static::ARTICLE),
+        ]);
+        $resolver = fn (string $host) => $host === 'blog.example' ? ['93.184.215.14'] : [$host];
+        $client = HttpClientFactory::create(new UrlGuard([], $resolver), $mock);
+        $cache = new ArrayAdapter();
+
+        $stale = new FeedProcessor('https://blog.example/rss', '.gone', $cache, $client);
+        $stale->read();
+        $processor = new FeedProcessor('https://blog.example/rss', '.entry-content', $cache, $client);
+        $processor->read();
+
+        $this->assertStringContainsString('No content', (string) $stale->getResponse()->getBody());
+        $this->assertStringContainsString('Full text', (string) $processor->getResponse()->getBody());
+    }
 }

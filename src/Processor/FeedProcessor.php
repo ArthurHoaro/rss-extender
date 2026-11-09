@@ -66,7 +66,7 @@ class FeedProcessor
         $this->feed->setPublicId($source->getPublicId());
         $this->feed->setUrl($source->getUrl());
 
-        $this->hash = md5($this->feed->getLink());
+        $this->hash = md5($this->feed->getLink() . "\n" . $this->selector);
         $this->processItems($source, $cacheEnabled);
     }
 
