@@ -128,6 +128,8 @@
             <input name="feed" type="hidden" value="<?= htmlspecialchars($feed) ?>" />
             <input name="selector" id="feed-parse" type="text" placeholder="Example: .entry-content or article" />
             <br>
+            <label><input name="all" type="checkbox" value="1" /> Keep every matching element, not only the first one</label>
+            <br>
             <a href="#" class="button" onclick="this.closest('form').submit();return false;">Parse</a>
           </form>
           <br><br>
@@ -135,6 +137,9 @@
           <a href="https://gist.github.com/ArthurHoaro/5aa58d035a79e9ac9c43508be593b21c">CSS Selector Cheat Sheet</a>
           <br><br>
           Supported pseudo-class: <em>:first-child</em>, <em>:last-child</em> and <em>:nth-child</em>.
+          <br><br>
+          Keeping every match lets a selector leave parts out, for example
+          <em>.entry-content &gt; :not(.share):not(.newsletter)</em>.
         </p>
       <?php else: ?>
         <p>

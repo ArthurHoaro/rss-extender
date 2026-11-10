@@ -150,4 +150,32 @@ XML;
         $this->assertStringContainsString('No content', (string) $stale->getResponse()->getBody());
         $this->assertStringContainsString('Full text', (string) $processor->getResponse()->getBody());
     }
+
+    public function testAllMatchesLeavesExcludedElementsOut(): void
+    {
+        $article = '<html><body><div class="entry-content"><p>One</p><p>Two</p>'
+            . '<div class="wp-block-group">Subscribe</div><div id="jp-post-flair">Share</div></div></body></html>';
+        $selector = '.entry-content > :not(.wp-block-group):not(#jp-post-flair)';
+        $mock = new MockHandler([
+            new Response(200, [], static::FEED),
+            new Response(200, [], $article),
+            new Response(200, [], static::FEED),
+            new Response(200, [], $article),
+        ]);
+        $resolver = fn (string $host) => $host === 'blog.example' ? ['93.184.215.14'] : [$host];
+        $client = HttpClientFactory::create(new UrlGuard([], $resolver), $mock);
+        $cache = new ArrayAdapter();
+
+        $first = new FeedProcessor('https://blog.example/rss', $selector, $cache, $client);
+        $first->read();
+        $all = new FeedProcessor('https://blog.example/rss', $selector, $cache, $client, allMatches: true);
+        $all->read();
+
+        $this->assertStringNotContainsString('Two', (string) $first->getResponse()->getBody());
+        $atom = (string) $all->getResponse()->getBody();
+        $this->assertStringContainsString('&lt;p&gt;One&lt;/p&gt;', $atom);
+        $this->assertStringContainsString('&lt;p&gt;Two&lt;/p&gt;', $atom);
+        $this->assertStringNotContainsString('Subscribe', $atom);
+        $this->assertStringNotContainsString('Share', $atom);
+    }
 }

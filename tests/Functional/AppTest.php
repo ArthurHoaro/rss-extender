@@ -67,6 +67,16 @@ class AppTest extends TestCase
         );
     }
 
+    public function testSaveStoresTheAllMatchesOption(): void
+    {
+        $this->request('POST', '/', ['feed' => 'https://blog.example/feed', 'selector' => 'article > p', 'all' => '1']);
+
+        $this->assertSame(
+            ['https://blog.example/feed' => ['selector' => 'article > p', 'all' => true]],
+            json_decode(file_get_contents($this->dataPath), true)
+        );
+    }
+
     public function testSaveRejectsInvalidFeedUrls(): void
     {
         $response = $this->request('POST', '/', ["feed" => "RSS feed URL' AND SLEEP(5)-- x", 'selector' => 'article']);

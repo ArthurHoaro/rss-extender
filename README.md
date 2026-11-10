@@ -19,6 +19,8 @@ or host your own.
   Example: [https://www.orbitale.io/feed.xml](https://www.orbitale.io/feed.xml)
   2. Open an article from the feed entry, and find a CSS selector which contains the article content.
   Example: `.post-content` (there is no selector)
+     Only the first matching element is kept, unless you tick "Keep every matching element": the matches
+     are then joined, so a selector such as `.entry-content > :not(.share):not(.newsletter)` leaves parts out.
   3. Fully extracted feed is available at [https://rssextender.hoa.ro/?feed=https%3A%2F%2Fwww.orbitale.io%2Ffeed.xml](https://rssextender.hoa.ro/?feed=https%3A%2F%2Fwww.orbitale.io%2Ffeed.xml)
   4. Articles are cached locally until the feed entry last date changed.
 

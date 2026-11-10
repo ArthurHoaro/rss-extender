@@ -31,13 +31,25 @@ class SelectorStoreTest extends TestCase
         $store->set('https://b.example/feed', 'article');
         $store->set('https://a.example/feed', 'main');
 
-        $this->assertSame('main', $store->get('https://a.example/feed'));
-        $this->assertSame('article', $store->get('https://b.example/feed'));
+        $this->assertSame(['selector' => 'main', 'all' => false], $store->get('https://a.example/feed'));
+        $this->assertSame(['selector' => 'article', 'all' => false], $store->get('https://b.example/feed'));
 
         $this->assertTrue($store->delete('https://a.example/feed'));
         $this->assertFalse($store->delete('https://a.example/feed'));
         $this->assertNull($store->get('https://a.example/feed'));
         $this->assertSame(['https://b.example/feed' => 'article'], json_decode(file_get_contents($this->path), true));
+    }
+
+    public function testKeepsTheAllMatchesOption(): void
+    {
+        $store = new SelectorStore($this->path);
+        $store->set('https://a.example/feed', 'article > p', true);
+
+        $this->assertSame(['selector' => 'article > p', 'all' => true], $store->get('https://a.example/feed'));
+
+        $store->set('https://a.example/feed', 'article > p');
+
+        $this->assertSame(['selector' => 'article > p', 'all' => false], $store->get('https://a.example/feed'));
     }
 
     public function testIgnoresNonStringSelectors(): void

@@ -8,7 +8,10 @@ class SelectorStore
     {
     }
 
-    public function get(string $feed): ?string
+    /**
+     * @return array{selector: string, all: bool}|null
+     */
+    public function get(string $feed): ?array
     {
         if (! is_file($this->path)) {
             return null;
@@ -19,13 +22,21 @@ class SelectorStore
         $selectors = json_decode(stream_get_contents($handle), true) ?: [];
         fclose($handle);
 
-        return is_string($selectors[$feed] ?? null) ? $selectors[$feed] : null;
+        $entry = $selectors[$feed] ?? null;
+        if (is_string($entry)) {
+            return ['selector' => $entry, 'all' => false];
+        }
+        if (is_array($entry) && is_string($entry['selector'] ?? null)) {
+            return ['selector' => $entry['selector'], 'all' => ! empty($entry['all'])];
+        }
+
+        return null;
     }
 
-    public function set(string $feed, string $selector): void
+    public function set(string $feed, string $selector, bool $all = false): void
     {
-        $this->update(function (array $selectors) use ($feed, $selector) {
-            $selectors[$feed] = $selector;
+        $this->update(function (array $selectors) use ($feed, $selector, $all) {
+            $selectors[$feed] = $all ? ['selector' => $selector, 'all' => true] : $selector;
 
             return $selectors;
         });

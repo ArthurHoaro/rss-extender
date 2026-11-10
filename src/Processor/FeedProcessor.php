@@ -47,6 +47,7 @@ class FeedProcessor
         protected CacheItemPoolInterface $cache,
         protected Client $client,
         protected LoggerInterface $logger = new NullLogger(),
+        protected bool $allMatches = false,
     ) {
         $this->feedIo = new FeedIo(new FeedIoClient(new RedirectingClient($client)));
         $this->feedIo->addStandard('atom', new HtmlAtom($this->feedIo->getDateTimeBuilder()));
@@ -66,7 +67,7 @@ class FeedProcessor
         $this->feed->setPublicId($source->getPublicId());
         $this->feed->setUrl($source->getUrl());
 
-        $this->hash = md5($this->feed->getLink() . "\n" . $this->selector);
+        $this->hash = md5($this->feed->getLink() . "\n" . $this->selector . ($this->allMatches ? "\nall" : ''));
         $this->processItems($source, $cacheEnabled);
     }
 
@@ -163,17 +164,26 @@ class FeedProcessor
 
     protected function extractContent(string $html, string $url): string
     {
-        $pseudo = $this->extractPseudoClass($this->selector);
+        $pseudo = $this->allMatches ? ['selector' => $this->selector] : $this->extractPseudoClass($this->selector);
         try {
             $results = (new Crawler($html, $url))->filter($pseudo['selector']);
         } catch (CssSelectorException $e) {
             return static::ERROR_CONTENT;
         }
-        $content = $this->applyPseudoClass($results, $pseudo);
+        $content = $this->allMatches ? $this->joinMatches($results) : $this->applyPseudoClass($results, $pseudo);
         $content = FeedUtils::replaceRelativeUrls($content, $this->rootUrl);
         $content = FeedUtils::replaceHttpAssetProtocol($content);
 
         return $content;
+    }
+
+    protected function joinMatches(Crawler $results): string
+    {
+        if ($results->count() === 0) {
+            return static::ERROR_CONTENT;
+        }
+
+        return implode("\n", $results->each(fn (Crawler $node) => $node->outerHtml()));
     }
 
     protected function extractPseudoClass(string $selector): array

@@ -42,10 +42,11 @@ class FeedController
 
         $processor = new FeedProcessor(
             $feed,
-            $selector,
+            $selector['selector'],
             $this->cache,
             $this->client,
             $this->logger,
+            $selector['all'],
         );
         try {
             $processor->read(empty($query['nocache']));
@@ -72,6 +73,7 @@ class FeedController
         $body = (array) $request->getParsedBody();
         $feed = is_string($body['feed'] ?? null) ? trim($body['feed']) : '';
         $selector = is_string($body['selector'] ?? null) ? trim($body['selector']) : '';
+        $all = ! empty($body['all']);
 
         if (! FeedUtils::isValidFeedUrl($feed)) {
             return $this->renderer->render($response->withStatus(400), 'index.phtml', [
@@ -86,8 +88,8 @@ class FeedController
             ]);
         }
 
-        $this->selectors->set($feed, $selector);
-        $this->logger->info('Saved selector', ['feed' => $feed, 'selector' => $selector]);
+        $this->selectors->set($feed, $selector, $all);
+        $this->logger->info('Saved selector', ['feed' => $feed, 'selector' => $selector, 'all' => $all]);
 
         return $this->redirect($response, ['feed' => $feed]);
     }
